@@ -185,6 +185,32 @@ async function listAllWorkspacesNames({
 
 }
 
+async function dumpWorkspaces({
+    url = 'https://gateway.watsonplatform.net/assistant/api/',
+    username,
+    password,
+    version = '2018-02-16',
+    workspaces }) {
+	const assistant = getAssistant({
+		username,
+		password,
+		url,
+		version
+	});
+
+	return await Promise.all(workspaces.map(async (workspace) => {
+		try{
+			return await getWorkspaceAndData({
+				assistant,
+				workspace_id: workspace.workspace_id
+			})
+		} catch (err) {
+			console.error(err)
+		}
+	}));
+
+}
+
 async function migratesWorkspaces({assistantSource, url, username, password, version = '2018-02-16', workspaces, stage}) {
     if (!workspaces || workspaces.length < 1) {
         return;
@@ -217,5 +243,6 @@ module.exports = {
     createWorkspaces,
     deleteWorkspaces,
     migratesWorkspaces,
-    listAllWorkspacesNames
+    listAllWorkspacesNames,
+	  dumpWorkspaces
 };
