@@ -148,20 +148,72 @@ async function createWorkspaceWithData({ assistant, name, description, language,
     });
 }
 
+async function updateWorkspace({assistant, workspace_id, name, description, language, intents = null, entities = null, dialog_nodes = null, counterexamples = null, append=true}) {
+    return new Promise((resolve, reject) => {
+        assistant.updateWorkspace({
+            workspace_id,
+            name,
+            description,
+            language,
+            intents,
+            entities,
+            dialog_nodes,
+            counterexamples,
+            append
+			  }, (err, response) => {
+            if (err) {
+                console.error(err);
+                return reject(err);
+            }
+
+				    return resolve(response);
+			});
+		});
+}
+
+async function getWorkspaceByName({assistant, name}) {
+    return await listWorkspaces({assistant})
+        .then(res => {
+            if (!_.isEmpty(res)) {
+                const matchedWorskpaces = _.filter(res, { name });
+                return _.isEmpty(matchedWorskpaces) ? null : matchedWorskpaces[0];
+            }
+            return null;
+        });
+}
+
 async function migrateWorkspace({assistantDest, assistantSource, workspace_id, name, description, language}) {
 
     return getWorkspaceAndData({assistant: assistantSource, workspace_id})
         .then(response => {
-            return createWorkspaceWithData({
-                name,
-                description,
-                language,
-                assistant: assistantDest,
-                intents: _.get(response, 'intents', null),
-                entities: _.get(response, 'entities', null),
-                dialog_nodes: _.get(response, 'dialog_nodes', null),
-                counterexamples: _.get(response, 'counterexamples', null)
-            })
+            return getWorkspaceByName({ assistant: assistantDest, name }).then((workspaceDest) => {
+                if (workspaceDest && workspaceDest.workspace_id) {
+                    return updateWorkspace({
+                        name,
+                        description,
+                        language,
+											  workspace_id: workspaceDest.workspace_id,
+                        append: false,
+                        assistant: assistantDest,
+                        intents: _.get(response, 'intents', null),
+                        entities: _.get(response, 'entities', null),
+                        dialog_nodes: _.get(response, 'dialog_nodes', null),
+                        counterexamples: _.get(response, 'counterexamples', null)
+                    });
+                }
+
+                console.log(`No workspace match the given name: ${name}`);
+                return createWorkspaceWithData({
+                    name,
+                    description,
+                    language,
+                    assistant: assistantDest,
+                    intents: _.get(response, 'intents', null),
+                    entities: _.get(response, 'entities', null),
+                    dialog_nodes: _.get(response, 'dialog_nodes', null),
+                    counterexamples: _.get(response, 'counterexamples', null)
+                })
+            });
         })
 }
 
@@ -182,6 +234,32 @@ async function listAllWorkspacesNames({
         .then(res => {
             return {workspaces : res, assistant}
         })
+
+}
+
+async function dumpWorkspaces({
+    url = 'https://gateway.watsonplatform.net/assistant/api/',
+    username,
+    password,
+    version = '2018-02-16',
+    workspaces }) {
+	const assistant = getAssistant({
+		username,
+		password,
+		url,
+		version
+	});
+
+	return await Promise.all(workspaces.map(async (workspace) => {
+		try{
+			return await getWorkspaceAndData({
+				assistant,
+				workspace_id: workspace.workspace_id
+			})
+		} catch (err) {
+			console.error(err)
+		}
+	}));
 
 }
 
@@ -217,5 +295,6 @@ module.exports = {
     createWorkspaces,
     deleteWorkspaces,
     migratesWorkspaces,
-    listAllWorkspacesNames
+    listAllWorkspacesNames,
+	  dumpWorkspaces
 };
