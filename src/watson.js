@@ -202,7 +202,6 @@ async function migrateWorkspace({assistantDest, assistantSource, workspace_id, n
                     });
                 }
 
-                console.log(`No workspace match the given name: ${name}`);
                 return createWorkspaceWithData({
                     name,
                     description,
